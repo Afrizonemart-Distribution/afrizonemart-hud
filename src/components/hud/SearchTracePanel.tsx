@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { fetchSearchTrace, type SearchTraceResult, type SearchTraceStage } from '@/lib/api/hud';
 import { HttpApiError } from '@/lib/api/client';
+import { RouteMap, type RouteNode } from './RouteMap';
 
 const STAGE_META: Record<
   string,
@@ -26,7 +27,7 @@ const STAGE_META: Record<
     describe: (d) => `script: ${String(d.script ?? 'unknown')}`,
   },
   synonym_expansion: {
-    label: 'Synonym Expansion',
+    label: 'Synonyms',
     icon: Languages,
     describe: (d) => {
       const applied = (d.synonymsApplied as { token: string; synonyms: string[] }[]) ?? [];
@@ -41,7 +42,7 @@ const STAGE_META: Record<
     describe: (d) => `${Number(d.resultCount ?? 0)} match${Number(d.resultCount ?? 0) === 1 ? '' : 'es'}`,
   },
   trigram_fallback: {
-    label: 'Trigram Fallback',
+    label: 'Fallback',
     icon: Zap,
     describe: (d) => `fired — recovered ${Number(d.resultCount ?? 0)} result(s)`,
   },
@@ -87,6 +88,7 @@ export function SearchTracePanel() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<SearchTraceResult | null>(null);
+  const [runToken, setRunToken] = useState(0);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -96,6 +98,7 @@ export function SearchTracePanel() {
     try {
       const trace = await fetchSearchTrace(query.trim());
       setResult(trace);
+      setRunToken((t) => t + 1);
     } catch (err) {
       setError(err instanceof HttpApiError ? err.message : 'Trace failed.');
       setResult(null);
@@ -103,6 +106,17 @@ export function SearchTracePanel() {
       setLoading(false);
     }
   };
+
+  const routeNodes: RouteNode[] = (result?.stages ?? []).map((stage) => {
+    const meta = STAGE_META[stage.name] ?? { label: stage.name, icon: Radar, describe: () => '' };
+    return {
+      key: stage.name,
+      label: meta.label,
+      icon: meta.icon,
+      detail: meta.describe(stage.detail),
+      weightMs: Math.max(stage.durationMs, 5),
+    };
+  });
 
   return (
     <div className="flex flex-col gap-6">
@@ -133,11 +147,7 @@ export function SearchTracePanel() {
 
       {result && (
         <>
-          <ol className="flex flex-col gap-3">
-            {result.stages.map((stage, i) => (
-              <StageRow key={stage.name} stage={stage} index={i} />
-            ))}
-          </ol>
+          <RouteMap nodes={routeNodes} runToken={runToken} />
 
           <div className="hud-corners hud-panel grid grid-cols-2 gap-4 p-5 sm:grid-cols-4">
             <Readout label="Total" value={`${result.totalDurationMs.toFixed(1)}ms`} />
@@ -153,6 +163,12 @@ export function SearchTracePanel() {
               tone={result.didYouMean ? 'warn' : 'ok'}
             />
           </div>
+
+          <ol className="flex flex-col gap-3">
+            {result.stages.map((stage, i) => (
+              <StageRow key={stage.name} stage={stage} index={i} />
+            ))}
+          </ol>
 
           <div className="flex items-center gap-2 font-mono text-[11px] text-amber/40">
             <CheckCircle2 size={12} aria-hidden className="text-success" />
