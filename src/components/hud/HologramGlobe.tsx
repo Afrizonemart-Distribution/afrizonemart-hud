@@ -52,13 +52,6 @@ const SWAY_LAT_DEG = 3;
 const SWAY_PERIOD_MS = 16000;
 const PULSE_TTL_MS = 5000;
 
-const orthographicProjection: ProjectionFunction = (width, height, config) =>
-  geoOrthographic()
-    .scale(config.scale ?? GLOBE_SCALE)
-    .translate([width / 2, height / 2])
-    .rotate(config.rotate ?? [0, 0, 0])
-    .clipAngle(90);
-
 function hexToRgb(hex: string): string {
   const n = parseInt(hex.replace('#', ''), 16);
   return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`;
@@ -72,11 +65,15 @@ function TickRing({ radius, rgb }: { radius: number; rgb: string }) {
       const major = deg % 30 === 0;
       const rad = (deg * Math.PI) / 180;
       const outer = radius + (major ? 16 : 9);
+      // Rounded to a fixed precision so SSR and client markup always
+      // agree — raw float trig output can differ in the last digit
+      // between engines/builds and trips a hydration mismatch warning.
+      const round = (n: number) => Math.round(n * 1000) / 1000;
       items.push({
-        x1: center + Math.sin(rad) * radius,
-        y1: center - Math.cos(rad) * radius,
-        x2: center + Math.sin(rad) * outer,
-        y2: center - Math.cos(rad) * outer,
+        x1: round(center + Math.sin(rad) * radius),
+        y1: round(center - Math.cos(rad) * radius),
+        x2: round(center + Math.sin(rad) * outer),
+        y2: round(center - Math.cos(rad) * outer),
         major,
       });
     }
@@ -112,6 +109,17 @@ function TickRing({ radius, rgb }: { radius: number; rgb: string }) {
  * with a graticule wireframe, a slow ambient sway instead of a static
  * pose, and a compass-style tick ring framing it like the reference
  * ops-dashboard globe.
+ *
+ * react-simple-maps' `projection` prop does NOT call a factory
+ * function you hand it — despite the `ProjectionFunction` type
+ * suggesting `(width, height, config) => GeoProjection` — its
+ * internal `makeProjection` does `if (typeof projection ===
+ * "function") return projection` verbatim. It expects an
+ * already-*built* d3 projection instance (which is itself callable,
+ * hence `typeof === "function"`), not a builder. Passing a builder
+ * crashed downstream in d3-geo's `geoPath().projection(...)` with a
+ * minified "e is not a function" — so the projection instance is
+ * built here via useMemo and passed in directly, never as a factory.
  */
 export function HologramGlobe({ eventFilter, compact = false, accent = AMBER }: HologramGlobeProps = {}) {
   const [pulses, setPulses] = useState<Pulse[]>([]);
@@ -119,6 +127,15 @@ export function HologramGlobe({ eventFilter, compact = false, accent = AMBER }: 
   const [rotate, setRotate] = useState<[number, number]>(REST_ROTATE);
   const rafRef = useRef<number>();
   const rgb = useMemo(() => hexToRgb(accent), [accent]);
+  const projection = useMemo(
+    () =>
+      geoOrthographic()
+        .scale(GLOBE_SCALE)
+        .translate([MAP_SIZE / 2, MAP_SIZE / 2])
+        .rotate([rotate[0], rotate[1], 0])
+        .clipAngle(90),
+    [rotate],
+  );
 
   useEffect(() => {
     const start = performance.now();
@@ -169,8 +186,13 @@ export function HologramGlobe({ eventFilter, compact = false, accent = AMBER }: 
         <TickRing radius={GLOBE_SCALE + 6} rgb={rgb} />
 
         <ComposableMap
-          projection={orthographicProjection}
-          projectionConfig={{ scale: GLOBE_SCALE, rotate: [rotate[0], rotate[1], 0] }}
+          // @types/react-simple-maps mistypes this prop as a
+          // (width, height, config) => GeoProjection factory; the
+          // real runtime contract (see the doc comment above) wants
+          // an already-built GeoProjection instance instead — cast
+          // around the wrong upstream type rather than the wrong
+          // runtime shape.
+          projection={projection as unknown as ProjectionFunction}
           width={MAP_SIZE}
           height={MAP_SIZE}
           style={{ width: '100%', height: 'auto', position: 'relative' }}
