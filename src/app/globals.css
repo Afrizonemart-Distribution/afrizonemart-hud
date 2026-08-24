@@ -63,4 +63,62 @@
     border-bottom: 2px solid;
     border-right: 2px solid;
   }
+
+  /* Radar chrome for the live map panel — ambient, independent of
+     real data, running whether or not anything's pulsing right now.
+     A thin scanning highlight down the top edge reads as "instrument
+     is on" at a glance, distinct from the corner-bracket framing. */
+  .radar-frame::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(251, 172, 52, 0.9), transparent);
+    animation: scan-x 5s ease-in-out infinite;
+    z-index: 1;
+  }
+
+  /* Concentric range rings, centered on the map, sized via inline
+     `inset` per-ring. Static — the rotating sweep supplies the
+     motion so the rings themselves don't need to animate. */
+  .range-ring {
+    position: absolute;
+    border-radius: 9999px;
+    border: 1px solid rgba(251, 172, 52, 0.16);
+  }
+
+  /* The rotating wedge — one dominant amber sweep, matching the
+     "always watching" radar convention from the reference imagery. */
+  .radar-sweep {
+    position: absolute;
+    inset: 0;
+    border-radius: 9999px;
+    background: conic-gradient(
+      from 0deg,
+      rgba(251, 172, 52, 0.28),
+      rgba(251, 172, 52, 0) 20%,
+      rgba(251, 172, 52, 0) 100%
+    );
+    animation: spin-radar 6s linear infinite;
+    mix-blend-mode: screen;
+  }
+
+  @keyframes spin-radar {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @keyframes scan-x {
+    0%,
+    100% {
+      transform: translateX(-100%);
+    }
+    50% {
+      transform: translateX(100%);
+    }
+  }
 }

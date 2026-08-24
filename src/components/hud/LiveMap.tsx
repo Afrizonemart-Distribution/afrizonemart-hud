@@ -8,16 +8,13 @@ import { useAuthStore } from '@/stores/authStore';
 
 const ISO2_TO_ENTRY = new Map(Object.values(AFRICA_ISO).map((e) => [e.iso2, e]));
 
-const EVENT_COLOR: Record<string, string> = {
-  'order.paid': '#FBAC34',
-  'order.shipped': '#4DD8FF',
-  'order.out_for_delivery': '#4DD8FF',
-  'order.delivered': '#3DDC97',
-  'order.cancelled': '#FF4D4D',
-  'order.refunded': '#FF4D4D',
-  'search.performed': '#FFD27A',
-  'document.downloaded': '#B794F4',
-};
+/// Deliberately one dominant glow color, not a rainbow per event type
+/// — matches the reference HUD imagery (a radar/flight-tracker is
+/// essentially monochrome with white/amber accents). Red is reserved
+/// for genuinely bad news so it still means something when it fires.
+const BAD_NEWS = new Set(['order.cancelled', 'order.refunded']);
+const AMBER = '#FBAC34';
+const RED = '#FF4D4D';
 
 interface LiveEventPayload {
   event: string;
@@ -38,7 +35,7 @@ const MAP_SIZE = 900;
 /// How long a pulse stays on screen before fading — this is purely a
 /// UI lifetime, unrelated to how long the real thing (a delivery, a
 /// search) actually took.
-const PULSE_TTL_MS = 4500;
+const PULSE_TTL_MS = 5000;
 
 /**
  * The whole HUD, replacing the old click-to-trace panels: one
@@ -50,6 +47,13 @@ const PULSE_TTL_MS = 4500;
  * footprint this map (reused from afrizonemart-v2's AfricaMap) already
  * covers — an order shipping outside Africa is silently skipped for
  * now rather than stretching this to a full world map.
+ *
+ * Visual language deliberately leans into "radar / flight-tracker",
+ * not "choropleth map": a continuously rotating sweep + concentric
+ * range rings as ambient chrome (the system is always being watched,
+ * whether or not anything's pulsing right now), a glow filter on the
+ * coastlines instead of a flat fill, and bursts at each event's real
+ * location instead of a static highlighted country.
  */
 export function LiveMap() {
   const [pulses, setPulses] = useState<Pulse[]>([]);
@@ -93,14 +97,37 @@ export function LiveMap() {
         <span className="text-amber/40">events observed — {eventCount}</span>
       </div>
 
-      <div className="hud-corners hud-panel relative overflow-hidden p-2">
+      <div className="hud-corners hud-panel radar-frame relative overflow-hidden p-2">
+        {/* Ambient chrome — range rings + rotating sweep. Purely
+            decorative, independent of real data, always running so
+            the panel reads as "watching" even between events. */}
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <div className="relative aspect-square w-[92%]">
+            <div className="range-ring" style={{ inset: '0%' }} />
+            <div className="range-ring" style={{ inset: '17%' }} />
+            <div className="range-ring" style={{ inset: '34%' }} />
+            <div className="range-ring" style={{ inset: '51%' }} />
+            <div className="radar-sweep" />
+          </div>
+        </div>
+
         <ComposableMap
           projection="geoMercator"
           projectionConfig={PROJECTION_CONFIG}
           width={MAP_SIZE}
           height={MAP_SIZE}
-          style={{ width: '100%', height: 'auto' }}
+          style={{ width: '100%', height: 'auto', position: 'relative' }}
         >
+          <defs>
+            <filter id="coastGlow" x="-30%" y="-30%" width="160%" height="160%">
+              <feGaussianBlur stdDeviation="2.2" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+
           <Geographies geography="/maps/world-50m.json">
             {({ geographies }) =>
               geographies
@@ -111,13 +138,26 @@ export function LiveMap() {
                     geography={geo}
                     style={{
                       default: {
-                        fill: 'rgba(251,172,52,0.04)',
-                        stroke: 'rgba(251,172,52,0.25)',
-                        strokeWidth: 0.6,
+                        fill: 'rgba(251,172,52,0.06)',
+                        stroke: AMBER,
+                        strokeWidth: 0.8,
+                        strokeOpacity: 0.7,
+                        outline: 'none',
+                        filter: 'url(#coastGlow)',
+                      },
+                      hover: {
+                        fill: 'rgba(251,172,52,0.06)',
+                        stroke: AMBER,
+                        strokeWidth: 0.8,
+                        strokeOpacity: 0.7,
                         outline: 'none',
                       },
-                      hover: { fill: 'rgba(251,172,52,0.04)', stroke: 'rgba(251,172,52,0.25)', outline: 'none' },
-                      pressed: { fill: 'rgba(251,172,52,0.04)', stroke: 'rgba(251,172,52,0.25)', outline: 'none' },
+                      pressed: {
+                        fill: 'rgba(251,172,52,0.06)',
+                        stroke: AMBER,
+                        strokeWidth: 0.8,
+                        outline: 'none',
+                      },
                     }}
                   />
                 ))
@@ -125,25 +165,30 @@ export function LiveMap() {
           </Geographies>
 
           {pulses.map((p) => {
-            const color = EVENT_COLOR[p.event] ?? '#FBAC34';
+            const color = BAD_NEWS.has(p.event) ? RED : AMBER;
             return (
               <Marker key={p.id} coordinates={[p.lon, p.lat]}>
-                <circle r={10} fill={color} opacity={0.25}>
-                  <animate attributeName="r" values="6;16;6" dur="1.8s" repeatCount="indefinite" />
-                  <animate attributeName="opacity" values="0.35;0;0.35" dur="1.8s" repeatCount="indefinite" />
+                <circle r={16} fill={color} opacity={0.2}>
+                  <animate attributeName="r" values="8;28;8" dur="2s" repeatCount="indefinite" />
+                  <animate attributeName="opacity" values="0.4;0;0.4" dur="2s" repeatCount="indefinite" />
                 </circle>
-                <circle r={3} fill={color} style={{ filter: `drop-shadow(0 0 4px ${color})` }} />
+                <circle r={5} fill={color} style={{ filter: `drop-shadow(0 0 6px ${color})` }} />
+                <circle r={5} fill="none" stroke={color} strokeWidth={1} opacity={0.6}>
+                  <animate attributeName="r" values="5;22" dur="1.4s" repeatCount="indefinite" />
+                  <animate attributeName="opacity" values="0.6;0" dur="1.4s" repeatCount="indefinite" />
+                </circle>
                 <text
-                  x={6}
-                  y={-8}
+                  x={9}
+                  y={-10}
                   className="font-mono"
-                  fontSize={7}
+                  fontSize={8}
+                  fontWeight={700}
                   fill={color}
                   style={{ textTransform: 'uppercase', letterSpacing: '0.04em' }}
                 >
                   {p.label}
                 </text>
-                <text x={6} y={0} className="font-mono" fontSize={6.5} fill="rgba(251,172,52,0.5)">
+                <text x={9} y={0} className="font-mono" fontSize={7} fill="rgba(251,172,52,0.6)">
                   {p.detail}
                 </text>
               </Marker>
