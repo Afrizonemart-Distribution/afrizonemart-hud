@@ -121,4 +121,38 @@
       transform: translateX(100%);
     }
   }
+
+  /* Red-accent panel variant — Search & Discovery's ops dashboard is
+     the one page that deliberately breaks from the site's amber
+     accent, matching the DataV reference image's own red-dominant
+     palette instead of forcing it into house colors. */
+  .text-glow-red {
+    text-shadow: 0 0 8px rgba(255, 77, 77, 0.55);
+  }
+
+  .ops-panel {
+    @apply relative rounded-md border border-danger/25 bg-navy-dark/60 shadow-panel backdrop-blur-sm;
+  }
+
+  .ops-corners::before,
+  .ops-corners::after {
+    content: '';
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    border-color: theme('colors.danger');
+    opacity: 0.7;
+  }
+  .ops-corners::before {
+    top: -1px;
+    left: -1px;
+    border-top: 2px solid;
+    border-left: 2px solid;
+  }
+  .ops-corners::after {
+    bottom: -1px;
+    right: -1px;
+    border-bottom: 2px solid;
+    border-right: 2px solid;
+  }
 }

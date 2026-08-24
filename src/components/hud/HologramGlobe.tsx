@@ -18,6 +18,20 @@ const BAD_NEWS = new Set(['order.cancelled', 'order.refunded']);
 const AMBER = '#FBAC34';
 const RED = '#FF4D4D';
 
+export interface HologramGlobeProps {
+  /// When set, only matching events are plotted — used to embed a
+  /// scoped globe (e.g. search-only) inside another page's dashboard
+  /// instead of showing every algorithm's activity.
+  eventFilter?: (event: HudLiveEvent) => boolean;
+  /// Hides the Live/event-count status row — the embedding page
+  /// already has its own connection indicator.
+  compact?: boolean;
+  /// Sphere/coastline/tick-ring/pulse color. Defaults to the site's
+  /// amber; pass the page's own accent (e.g. red for the Search ops
+  /// dashboard) to keep an embedded globe visually part of that page.
+  accent?: string;
+}
+
 interface Pulse extends HudLiveEvent {
   id: string;
   lon: number;
@@ -45,7 +59,12 @@ const orthographicProjection: ProjectionFunction = (width, height, config) =>
     .rotate(config.rotate ?? [0, 0, 0])
     .clipAngle(90);
 
-function TickRing({ radius }: { radius: number }) {
+function hexToRgb(hex: string): string {
+  const n = parseInt(hex.replace('#', ''), 16);
+  return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`;
+}
+
+function TickRing({ radius, rgb }: { radius: number; rgb: string }) {
   const center = MAP_SIZE / 2;
   const ticks = useMemo(() => {
     const items: { x1: number; y1: number; x2: number; y2: number; major: boolean }[] = [];
@@ -70,7 +89,7 @@ function TickRing({ radius }: { radius: number }) {
       className="pointer-events-none absolute inset-0 h-full w-full"
       aria-hidden
     >
-      <circle cx={center} cy={center} r={radius + 22} fill="none" stroke="rgba(251,172,52,0.15)" strokeWidth={1} />
+      <circle cx={center} cy={center} r={radius + 22} fill="none" stroke={`rgba(${rgb},0.15)`} strokeWidth={1} />
       {ticks.map((t, i) => (
         <line
           key={i}
@@ -78,7 +97,7 @@ function TickRing({ radius }: { radius: number }) {
           y1={t.y1}
           x2={t.x2}
           y2={t.y2}
-          stroke={t.major ? 'rgba(251,172,52,0.55)' : 'rgba(251,172,52,0.22)'}
+          stroke={t.major ? `rgba(${rgb},0.55)` : `rgba(${rgb},0.22)`}
           strokeWidth={t.major ? 1.4 : 0.8}
         />
       ))}
@@ -94,11 +113,12 @@ function TickRing({ radius }: { radius: number }) {
  * pose, and a compass-style tick ring framing it like the reference
  * ops-dashboard globe.
  */
-export function HologramGlobe() {
+export function HologramGlobe({ eventFilter, compact = false, accent = AMBER }: HologramGlobeProps = {}) {
   const [pulses, setPulses] = useState<Pulse[]>([]);
   const [eventCount, setEventCount] = useState(0);
   const [rotate, setRotate] = useState<[number, number]>(REST_ROTATE);
   const rafRef = useRef<number>();
+  const rgb = useMemo(() => hexToRgb(accent), [accent]);
 
   useEffect(() => {
     const start = performance.now();
@@ -117,6 +137,7 @@ export function HologramGlobe() {
   }, []);
 
   const { connected } = useHudLiveEvents((data) => {
+    if (eventFilter && !eventFilter(data)) return;
     const entry = ISO2_TO_ENTRY.get(data.country);
     if (!entry) return;
     const id = `${data.ts}-${Math.random().toString(36).slice(2, 8)}`;
@@ -130,20 +151,22 @@ export function HologramGlobe() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center gap-4 font-mono text-[11px] uppercase tracking-widest">
-        <span className={`flex items-center gap-1.5 ${connected ? 'text-success' : 'text-danger'}`}>
-          <Radio size={12} aria-hidden />
-          {connected ? 'Live' : 'Connecting…'}
-        </span>
-        <span className="text-amber/40">events observed — {eventCount}</span>
-      </div>
+      {!compact && (
+        <div className="flex items-center gap-4 font-mono text-[11px] uppercase tracking-widest">
+          <span className={`flex items-center gap-1.5 ${connected ? 'text-success' : 'text-danger'}`}>
+            <Radio size={12} aria-hidden />
+            {connected ? 'Live' : 'Connecting…'}
+          </span>
+          <span className="text-amber/40">events observed — {eventCount}</span>
+        </div>
+      )}
 
       <div className="hud-corners hud-panel radar-frame relative overflow-hidden p-2">
         <div
           className="pointer-events-none absolute left-1/2 top-1/2 -z-0 aspect-square w-[74%] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-60"
-          style={{ background: 'radial-gradient(circle, rgba(251,172,52,0.16), rgba(251,172,52,0) 70%)' }}
+          style={{ background: `radial-gradient(circle, rgba(${rgb},0.16), rgba(${rgb},0) 70%)` }}
         />
-        <TickRing radius={GLOBE_SCALE + 6} />
+        <TickRing radius={GLOBE_SCALE + 6} rgb={rgb} />
 
         <ComposableMap
           projection={orthographicProjection}
@@ -162,8 +185,8 @@ export function HologramGlobe() {
             </filter>
           </defs>
 
-          <Sphere id="hud-sphere" fill="rgba(10,15,61,0.55)" stroke={AMBER} strokeWidth={1.2} />
-          <Graticule stroke="rgba(251,172,52,0.14)" step={[15, 15]} />
+          <Sphere id="hud-sphere" fill="rgba(10,15,61,0.55)" stroke={accent} strokeWidth={1.2} />
+          <Graticule stroke={`rgba(${rgb},0.14)`} step={[15, 15]} />
 
           <Geographies geography="/maps/world-50m.json">
             {({ geographies }) =>
@@ -175,23 +198,23 @@ export function HologramGlobe() {
                     geography={geo}
                     style={{
                       default: {
-                        fill: 'rgba(251,172,52,0.08)',
-                        stroke: AMBER,
+                        fill: `rgba(${rgb},0.08)`,
+                        stroke: accent,
                         strokeWidth: 0.8,
                         strokeOpacity: 0.75,
                         outline: 'none',
                         filter: 'url(#coastGlow)',
                       },
                       hover: {
-                        fill: 'rgba(251,172,52,0.08)',
-                        stroke: AMBER,
+                        fill: `rgba(${rgb},0.08)`,
+                        stroke: accent,
                         strokeWidth: 0.8,
                         strokeOpacity: 0.75,
                         outline: 'none',
                       },
                       pressed: {
-                        fill: 'rgba(251,172,52,0.08)',
-                        stroke: AMBER,
+                        fill: `rgba(${rgb},0.08)`,
+                        stroke: accent,
                         strokeWidth: 0.8,
                         outline: 'none',
                       },
@@ -204,7 +227,7 @@ export function HologramGlobe() {
           {pulses
             .filter((p) => geoDistance(viewCenter, [p.lon, p.lat]) < Math.PI / 2 - 0.05)
             .map((p) => {
-              const color = BAD_NEWS.has(p.event) ? RED : AMBER;
+              const color = BAD_NEWS.has(p.event) ? RED : accent;
               return (
                 <Marker key={p.id} coordinates={[p.lon, p.lat]}>
                   <circle r={16} fill={color} opacity={0.2}>
@@ -227,7 +250,7 @@ export function HologramGlobe() {
                   >
                     {p.label}
                   </text>
-                  <text x={9} y={0} className="font-mono" fontSize={7} fill="rgba(251,172,52,0.6)">
+                  <text x={9} y={0} className="font-mono" fontSize={7} fill={`rgba(${rgb},0.6)`}>
                     {p.detail}
                   </text>
                 </Marker>
