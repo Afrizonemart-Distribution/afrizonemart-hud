@@ -2,25 +2,25 @@
 
 import { RequireAdmin } from '@/components/common/RequireAdmin';
 import { HudTopBar } from '@/components/hud/HudTopBar';
-import { LiveMap } from '@/components/hud/LiveMap';
+import { HudNav } from '@/components/hud/HudNav';
+import { HologramGlobe } from '@/components/hud/HologramGlobe';
 
 /**
- * One persistent, always-on view — no click-to-trace, no tabs. Real
- * platform activity (order lifecycle, search, Civic Library
- * downloads) lands on the map continuously via /api/hud/events (SSE)
- * as it actually happens. Replaced the earlier click-a-button /
- * watch-one-trace panels (SearchTracePanel, OrderJourneyPanel,
- * RouteMap) entirely per the 2026-08-24 direction — see git history
- * if any of that pattern is worth reviving for a future "inspect one
- * specific thing" mode alongside this.
+ * Overview — the "Overall" view per the 2026-08-24 direction: every
+ * algorithm's real activity landing on one live globe simultaneously,
+ * no button to press, no per-request trace. Order lifecycle, search,
+ * Civic Library downloads — all of it lands here as it actually
+ * happens, via /api/hud/events (SSE). Per-algorithm pages with their
+ * own dedicated visual language live alongside this one (see HudNav).
  */
 export default function HudHomePage() {
   return (
     <RequireAdmin>
       <div className="min-h-screen">
         <HudTopBar />
+        <HudNav />
         <main className="mx-auto max-w-5xl px-6 py-10">
-          <LiveMap />
+          <HologramGlobe />
         </main>
       </div>
     </RequireAdmin>
