@@ -1,0 +1,66 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-void text-amber/90 font-sans;
+    background-image:
+      linear-gradient(rgba(18, 24, 74, 0.5) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(18, 24, 74, 0.5) 1px, transparent 1px);
+    background-size: 32px 32px;
+    background-attachment: fixed;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-raleway;
+  }
+
+  :focus-visible {
+    outline: 2px solid #fbac34;
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  .text-glow {
+    text-shadow: 0 0 8px rgba(251, 172, 52, 0.6);
+  }
+
+  .hud-panel {
+    @apply relative rounded-md border border-amber/20 bg-navy-dark/60 shadow-panel backdrop-blur-sm;
+  }
+
+  /* Corner brackets — the "targeting reticle" framing on every panel. */
+  .hud-corners::before,
+  .hud-corners::after {
+    content: '';
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border-color: theme('colors.amber.DEFAULT');
+    opacity: 0.7;
+  }
+  .hud-corners::before {
+    top: -1px;
+    left: -1px;
+    border-top: 2px solid;
+    border-left: 2px solid;
+  }
+  .hud-corners::after {
+    bottom: -1px;
+    right: -1px;
+    border-bottom: 2px solid;
+    border-right: 2px solid;
+  }
+}
