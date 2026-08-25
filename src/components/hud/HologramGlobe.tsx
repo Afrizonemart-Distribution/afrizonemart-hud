@@ -6,9 +6,11 @@ import type { ProjectionFunction } from 'react-simple-maps';
 import { geoDistance, geoOrthographic } from 'd3-geo';
 import { Radio } from 'lucide-react';
 import { AFRICA_ISO, padIso } from '@/lib/africa-map-data';
+import { WORLD_ISO } from '@/lib/world-map-data';
 import { useHudLiveEvents, type HudLiveEvent } from '@/lib/hud/useHudLiveEvents';
 
-const ISO2_TO_ENTRY = new Map(Object.values(AFRICA_ISO).map((e) => [e.iso2, e]));
+const AFRICA_COORDS = new Map(Object.values(AFRICA_ISO).map((e) => [e.iso2, e.capital] as const));
+const WORLD_COORDS = new Map(Object.values(WORLD_ISO).map((e) => [e.iso2, e.centroid] as const));
 
 /// One dominant glow color, not a rainbow per event type — matches
 /// the reference HUD imagery (a radar/flight-tracker is essentially
@@ -30,6 +32,13 @@ export interface HologramGlobeProps {
   /// amber; pass the page's own accent (e.g. red for the Search ops
   /// dashboard) to keep an embedded globe visually part of that page.
   accent?: string;
+  /// Africa-only by default (matches the real shipping/order
+  /// footprint). Search & Discovery sees traffic from anywhere, so it
+  /// passes true: every country's outline renders, pulses resolve
+  /// against the full WORLD_ISO centroid table instead of just the
+  /// 54 AU capitals, and the sway widens to actually pan the globe
+  /// rather than just wobble around one region.
+  worldwide?: boolean;
 }
 
 interface Pulse extends HudLiveEvent {
@@ -40,6 +49,7 @@ interface Pulse extends HudLiveEvent {
 
 const MAP_SIZE = 900;
 const GLOBE_SCALE = 330;
+const WORLD_GLOBE_SCALE = 260;
 /// Africa's rough center — this is the resting orientation the globe
 /// sways around, not a starting point it drifts away from. Longitude
 /// sign is inverted per d3's rotate convention (rotate lambda = -center lon).
@@ -50,6 +60,12 @@ const REST_ROTATE: [number, number] = [-20, 3];
 const SWAY_LON_DEG = 9;
 const SWAY_LAT_DEG = 3;
 const SWAY_PERIOD_MS = 16000;
+/// Worldwide mode widens the sway into an actual slow pan across the
+/// globe (not just a wobble around Africa) and runs slower so it
+/// doesn't feel dizzying while still showing every region over time.
+const WORLD_SWAY_LON_DEG = 55;
+const WORLD_SWAY_LAT_DEG = 12;
+const WORLD_SWAY_PERIOD_MS = 26000;
 const PULSE_TTL_MS = 5000;
 
 function hexToRgb(hex: string): string {
@@ -121,7 +137,18 @@ function TickRing({ radius, rgb }: { radius: number; rgb: string }) {
  * minified "e is not a function" — so the projection instance is
  * built here via useMemo and passed in directly, never as a factory.
  */
-export function HologramGlobe({ eventFilter, compact = false, accent = AMBER }: HologramGlobeProps = {}) {
+export function HologramGlobe({
+  eventFilter,
+  compact = false,
+  accent = AMBER,
+  worldwide = false,
+}: HologramGlobeProps = {}) {
+  const scale = worldwide ? WORLD_GLOBE_SCALE : GLOBE_SCALE;
+  const swayLon = worldwide ? WORLD_SWAY_LON_DEG : SWAY_LON_DEG;
+  const swayLat = worldwide ? WORLD_SWAY_LAT_DEG : SWAY_LAT_DEG;
+  const swayPeriod = worldwide ? WORLD_SWAY_PERIOD_MS : SWAY_PERIOD_MS;
+  const coordsFor = worldwide ? WORLD_COORDS : AFRICA_COORDS;
+
   const [pulses, setPulses] = useState<Pulse[]>([]);
   const [eventCount, setEventCount] = useState(0);
   const [rotate, setRotate] = useState<[number, number]>(REST_ROTATE);
@@ -130,35 +157,53 @@ export function HologramGlobe({ eventFilter, compact = false, accent = AMBER }: 
   const projection = useMemo(
     () =>
       geoOrthographic()
-        .scale(GLOBE_SCALE)
+        .scale(scale)
         .translate([MAP_SIZE / 2, MAP_SIZE / 2])
         .rotate([rotate[0], rotate[1], 0])
         .clipAngle(90),
-    [rotate],
+    [rotate, scale],
   );
 
   useEffect(() => {
     const start = performance.now();
+    let lastCommit = 0;
+    // Throttled to ~20fps, not every rAF tick (~60fps). The sway is a
+    // many-second-long animation, so this is visually indistinguishable
+    // from full frame rate — but a component that calls setState on
+    // every single animation frame, forever, turns out to starve
+    // Next.js's router: route transitions run at low priority via
+    // `startTransition`, and React's scheduler kept preempting that
+    // pending transition in favor of this component's much higher-
+    // frequency updates, so it would never actually commit — clicking
+    // a nav tab while on this page did nothing, indefinitely, with no
+    // error anywhere (found by directly reproducing it with a headless
+    // browser: prefetch requests fired, the RSC payload even loaded,
+    // but the transition just never committed). Throttling the update
+    // rate gives the scheduler enough idle gaps to land the transition.
+    const MIN_INTERVAL_MS = 50;
     const tick = (now: number) => {
-      const t = (now - start) / SWAY_PERIOD_MS;
-      setRotate([
-        REST_ROTATE[0] + Math.sin(t * Math.PI * 2) * SWAY_LON_DEG,
-        REST_ROTATE[1] + Math.sin(t * Math.PI * 2 * 0.6) * SWAY_LAT_DEG,
-      ]);
+      if (now - lastCommit >= MIN_INTERVAL_MS) {
+        lastCommit = now;
+        const t = (now - start) / swayPeriod;
+        setRotate([
+          REST_ROTATE[0] + Math.sin(t * Math.PI * 2) * swayLon,
+          REST_ROTATE[1] + Math.sin(t * Math.PI * 2 * 0.6) * swayLat,
+        ]);
+      }
       rafRef.current = requestAnimationFrame(tick);
     };
     rafRef.current = requestAnimationFrame(tick);
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, []);
+  }, [swayPeriod, swayLon, swayLat]);
 
   const { connected } = useHudLiveEvents((data) => {
     if (eventFilter && !eventFilter(data)) return;
-    const entry = ISO2_TO_ENTRY.get(data.country);
-    if (!entry) return;
+    const coords = coordsFor.get(data.country);
+    if (!coords) return;
     const id = `${data.ts}-${Math.random().toString(36).slice(2, 8)}`;
-    const pulse: Pulse = { ...data, id, lon: entry.capital[0], lat: entry.capital[1] };
+    const pulse: Pulse = { ...data, id, lon: coords[0], lat: coords[1] };
     setPulses((prev) => [...prev, pulse]);
     setEventCount((c) => c + 1);
     setTimeout(() => setPulses((prev) => prev.filter((p) => p.id !== id)), PULSE_TTL_MS);
@@ -183,7 +228,7 @@ export function HologramGlobe({ eventFilter, compact = false, accent = AMBER }: 
           className="pointer-events-none absolute left-1/2 top-1/2 -z-0 aspect-square w-[74%] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-60"
           style={{ background: `radial-gradient(circle, rgba(${rgb},0.16), rgba(${rgb},0) 70%)` }}
         />
-        <TickRing radius={GLOBE_SCALE + 6} rgb={rgb} />
+        <TickRing radius={scale + 6} rgb={rgb} />
 
         <ComposableMap
           // @types/react-simple-maps mistypes this prop as a
@@ -213,7 +258,7 @@ export function HologramGlobe({ eventFilter, compact = false, accent = AMBER }: 
           <Geographies geography="/maps/world-50m.json">
             {({ geographies }) =>
               geographies
-                .filter((geo) => AFRICA_ISO[padIso(geo.id)])
+                .filter((geo) => worldwide || AFRICA_ISO[padIso(geo.id)])
                 .map((geo) => (
                   <Geography
                     key={geo.rsmKey}

@@ -24,7 +24,7 @@ export function MiniTable({
         {rows.map((r, i) => (
           <tr key={i} className="border-t border-danger/10 text-amber/70">
             {columns.map((c) => (
-              <td key={c.key} className="max-w-[120px] truncate py-1">
+              <td key={c.key} className="break-words py-1" title={String(r[c.key])}>
                 {r[c.key]}
               </td>
             ))}

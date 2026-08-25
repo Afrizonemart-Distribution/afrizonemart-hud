@@ -1,8 +1,5 @@
 'use client';
 
-import { RequireAdmin } from '@/components/common/RequireAdmin';
-import { HudTopBar } from '@/components/hud/HudTopBar';
-import { HudNav } from '@/components/hud/HudNav';
 import { HologramGlobe } from '@/components/hud/HologramGlobe';
 
 /**
@@ -12,17 +9,13 @@ import { HologramGlobe } from '@/components/hud/HologramGlobe';
  * Civic Library downloads — all of it lands here as it actually
  * happens, via /api/hud/events (SSE). Per-algorithm pages with their
  * own dedicated visual language live alongside this one (see HudNav).
+ *
+ * RequireAdmin/HudTopBar/HudNav now live in the shared (hud)/layout.tsx.
  */
 export default function HudHomePage() {
   return (
-    <RequireAdmin>
-      <div className="min-h-screen">
-        <HudTopBar />
-        <HudNav />
-        <main className="mx-auto max-w-5xl px-6 py-10">
-          <HologramGlobe />
-        </main>
-      </div>
-    </RequireAdmin>
+    <main className="mx-auto max-w-5xl px-6 py-10">
+      <HologramGlobe />
+    </main>
   );
 }

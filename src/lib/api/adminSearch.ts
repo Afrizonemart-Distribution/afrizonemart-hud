@@ -11,7 +11,7 @@ export interface SearchStats {
   didYouMeanRate: number;
   scriptDistribution: Array<{ script: string; count: number }>;
   topZeroResultQueries: Array<{ normalizedQuery: string; count: number }>;
-  topQueries: Array<{ normalizedQuery: string; count: number }>;
+  topQueries: Array<{ normalizedQuery: string; count: number; topCountry: string | null }>;
   topCountries: Array<{ country: string; count: number }>;
 }
 

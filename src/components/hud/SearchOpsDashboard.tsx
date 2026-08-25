@@ -105,7 +105,13 @@ export function SearchOpsDashboard() {
             />
           </OpsPanel>
           <OpsPanel title="Top Queries">
-            <RankedBars items={stats.topQueries.slice(0, 6).map((q) => ({ label: q.normalizedQuery, value: q.count }))} />
+            <RankedBars
+              items={stats.topQueries.slice(0, 8).map((q) => ({
+                label: q.normalizedQuery,
+                value: q.count,
+                sublabel: q.topCountry,
+              }))}
+            />
           </OpsPanel>
           <OpsPanel title="30-Day Search Volume" className="flex-1">
             <TrendChart data={daily.map((d) => d.totalQueries)} />
@@ -114,8 +120,8 @@ export function SearchOpsDashboard() {
 
         {/* Center — the live hero visualization */}
         <div className="flex flex-col gap-3">
-          <OpsPanel title="Live Search Activity — Africa" className="flex-1">
-            <HologramGlobe accent={RED} compact eventFilter={(e) => e.event === 'search.performed'} />
+          <OpsPanel title="Live Search Activity — Worldwide" className="flex-1">
+            <HologramGlobe accent={RED} compact worldwide eventFilter={(e) => e.event === 'search.performed'} />
           </OpsPanel>
         </div>
 
