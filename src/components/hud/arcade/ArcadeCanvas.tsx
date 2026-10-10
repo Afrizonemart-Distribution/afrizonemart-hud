@@ -46,14 +46,21 @@ const colorFor = (p: PulseParticle) =>
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const ease = (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
 
+/** What the mouse is over, for the explain popup. */
+export type ArenaHover = { kind: 'station'; key: 'shoppers' | 'cache' | 'node' | 'postgres' } | { kind: 'dot'; p: PulseParticle };
+
 export function ArcadeCanvas({
   incoming,
   snap,
+  onHover,
 }: {
   incoming: MutableRefObject<PulseParticle[]>;
   snap: PulseSnapshot | null;
+  onHover?: (h: ArenaHover | null, clientX: number, clientY: number) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const onHoverRef = useRef(onHover);
+  onHoverRef.current = onHover;
   const snapRef = useRef<PulseSnapshot | null>(snap);
   snapRef.current = snap;
 
@@ -92,6 +99,34 @@ export function ArcadeCanvas({
       node: { x: W * 0.58, y: H * 0.5 },
       db: { x: W * 0.86, y: H * 0.5 },
     });
+
+    // Hover: dots first (nearest within 8 px), then the stations.
+    const onMove = (ev: MouseEvent) => {
+      const r = canvas.getBoundingClientRect();
+      const mx = ev.clientX - r.left;
+      const my = ev.clientY - r.top;
+      const L = pos();
+      let best: Dot | null = null;
+      let bd = 64;
+      for (const d of dots) {
+        const dd = (d.x - mx) ** 2 + (d.y - my) ** 2;
+        if (dd < bd) {
+          bd = dd;
+          best = d;
+        }
+      }
+      let h: ArenaHover | null = null;
+      if (best) h = { kind: 'dot', p: best.p };
+      else if (Math.hypot(mx - L.node.x, my - L.node.y) < 46) h = { kind: 'station', key: 'node' };
+      else if (Math.abs(mx - L.db.x) < 42 && Math.abs(my - L.db.y) < 50) h = { kind: 'station', key: 'postgres' };
+      else if (Math.abs(mx - (L.shield.x - 6)) < 26 && Math.abs(my - L.shield.y) < 100) h = { kind: 'station', key: 'cache' };
+      else if (mx >= L.crowd.x0 - 6 && mx <= L.crowd.x1 + 6 && my >= L.crowd.y0 - 20 && my <= L.crowd.y1 + 20) h = { kind: 'station', key: 'shoppers' };
+      canvas.style.cursor = h ? 'help' : '';
+      onHoverRef.current?.(h, ev.clientX, ev.clientY);
+    };
+    const onLeave = () => onHoverRef.current?.(null, 0, 0);
+    canvas.addEventListener('mousemove', onMove);
+    canvas.addEventListener('mouseleave', onLeave);
 
     const spawn = (p: PulseParticle) => {
       const L = pos();
@@ -346,6 +381,8 @@ export function ArcadeCanvas({
     return () => {
       cancelAnimationFrame(raf);
       ro.disconnect();
+      canvas.removeEventListener('mousemove', onMove);
+      canvas.removeEventListener('mouseleave', onLeave);
     };
   }, [incoming]);
 
