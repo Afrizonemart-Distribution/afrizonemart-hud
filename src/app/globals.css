@@ -156,3 +156,74 @@
     border-right: 2px solid;
   }
 }
+
+/* ---- HUD Store Game: 3D-anchored labels (CSS2DRenderer) ---------------- */
+.sg-sign {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 3px 8px;
+  border: 1px solid rgba(251, 172, 52, 0.6);
+  border-radius: 4px;
+  background: rgba(5, 6, 20, 0.85);
+  color: #fbac34;
+  font: 600 11px/1.2 var(--font-raleway), sans-serif;
+  white-space: nowrap;
+  text-shadow: 0 0 6px rgba(251, 172, 52, 0.5);
+}
+.sg-sign span {
+  font: 9px var(--font-mono), monospace;
+  color: rgba(251, 172, 52, 0.6);
+}
+.sg-bank {
+  border-color: rgba(77, 216, 255, 0.7);
+  color: #4dd8ff;
+}
+.sg-tag {
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(5, 6, 20, 0.7);
+  color: rgba(251, 172, 52, 0.75);
+  font: 9px var(--font-mono), monospace;
+  white-space: nowrap;
+}
+.sg-bubble {
+  position: relative;
+  max-width: 180px;
+  padding: 4px 8px;
+  border-radius: 10px;
+  background: #fff;
+  color: #0a0f3d;
+  font: 600 11px/1.25 var(--font-raleway), sans-serif;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  white-space: normal;
+  text-align: center;
+  animation: sg-pop 0.18s ease-out;
+}
+.sg-bubble small {
+  display: block;
+  font-weight: 400;
+  font-size: 9px;
+  opacity: 0.8;
+}
+.sg-bubble::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -5px;
+  margin-left: -5px;
+  border: 5px solid transparent;
+  border-bottom: 0;
+  border-top-color: inherit;
+}
+.sg-info { border-color: #fff; }
+.sg-search { background: #fef3e2; border-color: #fef3e2; }
+.sg-good { background: #3ddc97; border-color: #3ddc97; color: #04261a; }
+.sg-bad { background: #ff4d4d; border-color: #ff4d4d; color: #fff; }
+.sg-bubble.sg-info::after, .sg-bubble.sg-search::after, .sg-bubble.sg-good::after, .sg-bubble.sg-bad::after {
+  border-top-color: inherit;
+}
+@keyframes sg-pop {
+  from { transform: scale(0.6); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}

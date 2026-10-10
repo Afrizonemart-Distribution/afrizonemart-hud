@@ -44,3 +44,8 @@ npm install
 cp .env.example .env.local   # points at the real prod API by default
 npm run dev
 ```
+
+## Credits
+
+3D models in `public/models/` are from Kenney's **Mini Characters** and **Mini Market** packs
+(www.kenney.nl), licensed CC0. License files sit next to the models.
