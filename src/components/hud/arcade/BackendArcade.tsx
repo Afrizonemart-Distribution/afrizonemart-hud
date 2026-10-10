@@ -2,8 +2,8 @@
 
 import { Component, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ArcadeCanvas, type ArenaHover } from './ArcadeCanvas';
-import { AdvisorPanel } from './AdvisorPanel';
-import { Explain, ExplainProvider, useExplain } from './Explain';
+import { AdvisorPanel } from '@/components/hud/common/AdvisorPanel';
+import { Explain, ExplainProvider, useExplain } from '@/components/hud/common/Explain';
 import { advise } from '@/lib/hud/advisor';
 import { EXPLAIN, explainParticle } from '@/lib/hud/explain';
 import { PulseSim } from '@/lib/hud/pulseSim';
@@ -138,7 +138,7 @@ export function BackendArcade() {
   const advice = useMemo(() => advise(snap, history, mode), [snap, history, mode]);
 
   return (
-    <ExplainProvider snap={snap}>
+    <ExplainProvider registry={EXPLAIN} ctx={snap}>
     <div className="flex flex-col gap-4">
       {/* source picker */}
       <Explain k="source">
@@ -218,7 +218,7 @@ export function BackendArcade() {
         <Kpi k="cachehit" label="Cache hit" value={s ? (s.cache.ttlMs ? `${s.cache.hitRate}%` : 'off') : '—'} sub={s ? `DB ${s.db.qps} q/s` : ''} />
       </div>
 
-      <AdvisorPanel advice={advice} mode={mode} />
+      <AdvisorPanel advice={advice} note={mode === 'sim' ? '(practice numbers from SIM)' : undefined} />
 
       {/* arena */}
       <div className="hud-panel hud-corners relative overflow-hidden">
