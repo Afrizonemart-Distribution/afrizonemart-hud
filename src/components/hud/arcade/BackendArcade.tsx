@@ -1,7 +1,11 @@
 'use client';
 
 import { Component, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { ArcadeCanvas } from './ArcadeCanvas';
+import { ArcadeCanvas, type ArenaHover } from './ArcadeCanvas';
+import { AdvisorPanel } from './AdvisorPanel';
+import { Explain, ExplainProvider, useExplain } from './Explain';
+import { advise } from '@/lib/hud/advisor';
+import { EXPLAIN, explainParticle } from '@/lib/hud/explain';
 import { PulseSim } from '@/lib/hud/pulseSim';
 import { LIMITS, passes, type PulseSnapshot } from '@/lib/hud/pulseTypes';
 import { usePulse, type PulseSource } from '@/lib/hud/usePulse';
@@ -131,10 +135,13 @@ export function BackendArcade() {
   const s = snap;
   const playersNow = s ? s.players.loadtest || s.players.shoppers : 0;
   const ok = s ? passes(s) : true;
+  const advice = useMemo(() => advise(snap, history, mode), [snap, history, mode]);
 
   return (
+    <ExplainProvider snap={snap}>
     <div className="flex flex-col gap-4">
       {/* source picker */}
+      <Explain k="source">
       <div className="flex flex-wrap items-center gap-2">
         {(
           [
@@ -157,6 +164,9 @@ export function BackendArcade() {
           ● {connected ? 'connected' : mode === 'live' ? 'connecting… (needs api#127 deployed)' : 'not connected'}
         </span>
       </div>
+
+      </Explain>
+      <p className="-mt-2 font-mono text-[10px] text-amber/40">New here? Hover over anything — every number, line and part of the arena explains itself.</p>
 
       {mode === 'sim' && (
         <div className="rounded border border-info/40 bg-info/5 px-3 py-2 font-mono text-[11px] text-info">
@@ -198,27 +208,31 @@ export function BackendArcade() {
 
       {/* scoreboard */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
-        <Kpi label="Players online" value={playersNow.toLocaleString()} sub={s?.players.loadtest ? 'k6 virtual users' : 'shoppers, last 60 s'} />
-        <Kpi label="Throughput" value={s ? `${s.rps}` : '—'} sub="req / s" />
-        <Kpi label="p50" value={s ? `${s.lat.p50}` : '—'} sub="ms median" />
-        <Kpi label="p95" value={s ? `${s.lat.p95}` : '—'} sub={`ms · limit ${LIMITS.p95}`} bad={!!s && s.lat.p95 >= LIMITS.p95} />
-        <Kpi label="p99" value={s ? `${s.lat.p99}` : '—'} sub={`ms · limit ${LIMITS.p99}`} bad={!!s && s.lat.p99 >= LIMITS.p99} />
-        <Kpi label="Errors" value={s ? `${s.errors.rate}%` : '—'} sub={`limit ${LIMITS.errorPct}%`} bad={!!s && s.errors.rate >= LIMITS.errorPct} />
-        <Kpi label="CPU" value={s ? `${s.cpu.pct}%` : '—'} sub={s ? `${s.cpu.cores} core${s.cpu.cores === 1 ? '' : 's'} · lag ${s.loopLagMs} ms` : ''} bad={!!s && s.cpu.pct >= 85} />
-        <Kpi label="Cache hit" value={s ? (s.cache.ttlMs ? `${s.cache.hitRate}%` : 'off') : '—'} sub={s ? `DB ${s.db.qps} q/s` : ''} />
+        <Kpi k="shoppers" label="Players online" value={playersNow.toLocaleString()} sub={s?.players.loadtest ? 'k6 virtual users' : 'shoppers, last 60 s'} />
+        <Kpi k="rps" label="Throughput" value={s ? `${s.rps}` : '—'} sub="req / s" />
+        <Kpi k="p50" label="p50" value={s ? `${s.lat.p50}` : '—'} sub="ms median" />
+        <Kpi k="p95" label="p95" value={s ? `${s.lat.p95}` : '—'} sub={`ms · limit ${LIMITS.p95}`} bad={!!s && s.lat.p95 >= LIMITS.p95} />
+        <Kpi k="p99" label="p99" value={s ? `${s.lat.p99}` : '—'} sub={`ms · limit ${LIMITS.p99}`} bad={!!s && s.lat.p99 >= LIMITS.p99} />
+        <Kpi k="errors" label="Errors" value={s ? `${s.errors.rate}%` : '—'} sub={`limit ${LIMITS.errorPct}%`} bad={!!s && s.errors.rate >= LIMITS.errorPct} />
+        <Kpi k="cpu" label="CPU" value={s ? `${s.cpu.pct}%` : '—'} sub={s ? `${s.cpu.cores} core${s.cpu.cores === 1 ? '' : 's'} · lag ${s.loopLagMs} ms` : ''} bad={!!s && s.cpu.pct >= 85} />
+        <Kpi k="cachehit" label="Cache hit" value={s ? (s.cache.ttlMs ? `${s.cache.hitRate}%` : 'off') : '—'} sub={s ? `DB ${s.db.qps} q/s` : ''} />
       </div>
+
+      <AdvisorPanel advice={advice} mode={mode} />
 
       {/* arena */}
       <div className="hud-panel hud-corners relative overflow-hidden">
+        <Explain k="passfail" className="absolute right-3 top-3 z-10">
         <div
-          className={`absolute right-3 top-3 z-10 rounded border px-3 py-1 font-mono text-xs font-bold tracking-widest ${
+          className={`rounded border px-3 py-1 font-mono text-xs font-bold tracking-widest ${
             ok ? 'border-success text-success' : 'border-danger text-danger text-glow-red'
           }`}
         >
           {s ? (ok ? 'PASS' : 'FAIL') : 'WAITING'}
         </div>
+        </Explain>
         <SafeBoundary fallback={<p className="p-6 font-mono text-xs text-amber/60">Arena failed to draw — numbers above are still live.</p>}>
-          <ArcadeCanvas incoming={incoming} snap={snap} />
+          <ArenaCanvas incoming={incoming} snap={snap} />
         </SafeBoundary>
         <div className="flex flex-wrap gap-4 px-4 pb-3 font-mono text-[10px] text-amber/50">
           <span><b className="text-success">●</b> &lt; 100 ms</span>
@@ -230,12 +244,12 @@ export function BackendArcade() {
 
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
         <div className="hud-panel p-4">
-          <h3 className="mb-2 font-mono text-[10px] uppercase tracking-widest text-amber/60">Last 60 s — p95 vs the 500 ms limit</h3>
+          <Explain k="chart"><h3 className="mb-2 font-mono text-[10px] uppercase tracking-widest text-amber/60">Last 60 s — p95 vs the 500 ms limit ⓘ</h3></Explain>
           <LatencyChart history={history} />
         </div>
 
         <div className="hud-panel flex flex-col gap-3 p-4">
-          <h3 className="font-mono text-[10px] uppercase tracking-widest text-amber/60">The experiment</h3>
+          <Explain k="experiment"><h3 className="font-mono text-[10px] uppercase tracking-widest text-amber/60">The experiment ⓘ</h3></Explain>
           {mode === 'sim' ? (
             <>
               <label className="font-mono text-[11px] text-amber/70">
@@ -290,17 +304,30 @@ export function BackendArcade() {
         </div>
       </div>
     </div>
+    </ExplainProvider>
   );
 }
 
-function Kpi({ label, value, sub, bad }: { label: string; value: string; sub?: string; bad?: boolean }) {
+function Kpi({ k, label, value, sub, bad }: { k: string; label: string; value: string; sub?: string; bad?: boolean }) {
   return (
+    <Explain k={k}>
     <div className={`hud-panel px-3 py-2 ${bad ? 'border-danger/60' : ''}`}>
       <div className="font-mono text-[9px] uppercase tracking-widest text-amber/50">{label}</div>
       <div className={`font-mono text-xl ${bad ? 'text-danger text-glow-red' : 'text-amber text-glow'}`}>{value}</div>
       {sub && <div className="font-mono text-[9px] text-amber/40">{sub}</div>}
     </div>
+    </Explain>
   );
+}
+
+/** Canvas hover -> explain popup. */
+function ArenaCanvas(props: Omit<Parameters<typeof ArcadeCanvas>[0], 'onHover'>) {
+  const { show } = useExplain();
+  const onHover = (h: ArenaHover | null, x: number, y: number) => {
+    if (!h) return show(null, 0, 0);
+    show(h.kind === 'dot' ? explainParticle(h.p) : EXPLAIN[h.key], x, y);
+  };
+  return <ArcadeCanvas {...props} onHover={onHover} />;
 }
 
 function Results({ results, best }: { results: StageResult[]; best: (r: StageResult['run']) => number }) {
