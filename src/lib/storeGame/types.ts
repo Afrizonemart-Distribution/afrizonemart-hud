@@ -37,3 +37,9 @@ export interface CategoryNode {
   productCount?: number;
   children?: CategoryNode[];
 }
+
+/** What the HUD knows about a product (for shelf/basket bubbles). */
+export interface ProductInfo {
+  name: string;
+  categorySlug?: string;
+}
