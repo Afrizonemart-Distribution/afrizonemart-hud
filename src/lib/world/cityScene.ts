@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { Actor, Fx } from './actors';
 import { addLights, bakeStatic, escapeHtml, flagImg, hash, money, type GameCore, type GameScene } from './core';
 import type { StoreEvent } from '../storeGame/types';
+import type { Pipeline } from '../hud/orders';
 
 /**
  * Afrizonemart City — the world map. Roads on an 8-tile grid, the Mall
@@ -72,6 +73,10 @@ export class CityScene implements GameScene {
   private alarmT = 0;
   private serverLight: THREE.Mesh | null = null;
   private boxes: THREE.Object3D[] = [];
+  /** real order pipeline (Warehouse / Depot signs); null until loaded */
+  private orders: Pipeline | null = null;
+  /** DEMO has no real shipments, so it sends a van per sale; LIVE waits for order.shipped. */
+  vanOnSale = true;
   /** placed scenery that never moves; merged after build */
   private statics = new THREE.Group();
   private treeMats = new Map<number, THREE.Material>();
@@ -161,8 +166,8 @@ export class CityScene implements GameScene {
     jobs.push(this.landmark('mall', C('building-n'), 0, 0, 2.5, '🛍 <b>Afrizonemart Mall</b>', 'Tap to go inside', { scene: 'mall' }));
     jobs.push(this.landmark('bank', C('building-skyscraper-a'), 8, -8, 1.9, '🏦 <b>Bank</b>', 'Payments · Squad · M-Pesa'));
     jobs.push(this.landmark('server', C('building-skyscraper-d'), -8, -8, 1.45, '🖥 <b>Server Tower</b>', 'The API · tap for the back room', { href: '/arcade' }));
-    jobs.push(this.landmark('warehouse', C('building-k'), -8, 8, 2.6, '📦 <b>Warehouse</b>', 'Orders get packed here'));
-    jobs.push(this.landmark('depot', C('building-e'), 8, 8, 2.4, '🚚 <b>Delivery Depot</b>', 'Vans leave for every country'));
+    jobs.push(this.landmark('warehouse', C('building-k'), -8, 8, 2.6, '📦 <b>Warehouse</b>', 'Orders get packed here', { href: '/order-journey' }));
+    jobs.push(this.landmark('depot', C('building-e'), 8, 8, 2.4, '🚚 <b>Delivery Depot</b>', 'Vans leave for every country', { href: '/order-journey' }));
     jobs.push(this.landmark('market', C('detail-parasol-a'), 8, 0, 4, '🧺 <b>Supplier Market</b>', 'Where products come from'));
     for (const [x, z] of [
       [6.4, -1.4],
@@ -309,8 +314,34 @@ export class CityScene implements GameScene {
 
   // ---- signs -----------------------------------------------------------
 
+  /** Real orders from /api/admin/hud/orders drive the Warehouse and Depot. */
+  setOrders(p: Pipeline | null): void {
+    this.orders = p;
+    if (this.gates.length) this.refreshSigns();
+  }
+
+  private orderCounts() {
+    const p = this.orders;
+    const n = (s: string) => p?.stages.find((x) => x.stage === s)?.count ?? 0;
+    const late = (s: string[]) => p?.stuck.filter((x) => s.includes(x.stage)).length ?? 0;
+    return {
+      toPack: n('PAID') + n('FULFILLING'),
+      packLate: late(['PAID', 'FULFILLING']),
+      onRoad: n('SHIPPED') + n('OUT_FOR_DELIVERY'),
+      roadLate: late(['SHIPPED', 'OUT_FOR_DELIVERY']),
+      delivered: n('DELIVERED'),
+    };
+  }
+
   refreshSigns(): void {
     const L = this.core.ledger;
+    const o = this.orderCounts();
+    const wh = this.landmarks.get('warehouse');
+    if (wh && this.orders)
+      wh.label.innerHTML = `📦 <b>Warehouse</b><span>${o.toPack} to pack${o.packLate ? ` · <em>${o.packLate} late</em>` : ''}</span>`;
+    const dp = this.landmarks.get('depot');
+    if (dp && this.orders)
+      dp.label.innerHTML = `🚚 <b>Delivery Depot</b><span>${o.onRoad} on the road${o.roadLate ? ` · <em>${o.roadLate} late</em>` : ''} · ${o.delivered} delivered</span>`;
     for (const g of this.gates) {
       const n = g.cc === '??' ? this.otherArrivals() : (L.byCountry.get(g.cc) ?? 0);
       g.label.innerHTML = `${g.cc === '??' ? '🌍' : flagImg(g.cc)} <b>${COUNTRY_NAME[g.cc]}</b><span>${n} today</span>`;
@@ -429,12 +460,12 @@ export class CityScene implements GameScene {
         this.say('bank', `✅ +${money(e.amt, e.cur)}`, 'good');
         const box = this.boxes[hash(e.s) % Math.max(1, this.boxes.length)];
         if (box) this.fx.coins(box.position.clone().add(new THREE.Vector3(0, 0.6, 0)), 0.8, 4);
-        this.sendVan(e.c);
+        if (this.vanOnSale) this.sendVan(e.c);
       },
     });
   }
 
-  private sendVan(cc?: string | null): void {
+  sendVan(cc?: string | null): void {
     if (this.vans.length > 8) return;
     const g = this.gateFor(cc);
     const van = this.makeVan(8, 9.6, 0);
@@ -561,8 +592,12 @@ export class CityScene implements GameScene {
         mall: [`${L.visits.size} visits today`, 'Every shopper, live, inside'],
         bank: [`${money(L.sales, 'NGN')} taken today`, `${L.paid} paid · ${L.failed} failed`, L.lastFail ? `Last failure: ${L.lastFail.reason}` : ''],
         server: [`${L.errors} errors today`, L.lastError ? `Last: ${L.lastError.detail}` : 'No errors', 'Opens the Backend Arcade'],
-        warehouse: [`${L.paid} orders to pack today`],
-        depot: [`${L.paid} deliveries dispatched today`],
+        warehouse: this.orders
+          ? [`${this.orderCounts().toPack} paid orders waiting to be packed`, this.orderCounts().packLate ? `${this.orderCounts().packLate} past the 24–48 h target — see Order Journey` : 'All on time']
+          : ['Real order data loads for staff with orders access'],
+        depot: this.orders
+          ? [`${this.orderCounts().onRoad} parcels on the road`, `${this.orderCounts().delivered} delivered (last ${this.orders.days} days)`, this.orderCounts().roadLate ? `${this.orderCounts().roadLate} late` : 'A van leaves on every real “shipped” event']
+          : ['A van leaves after each sale'],
         market: ['Suppliers and their products', 'Coming soon: supplier activity'],
       };
       const titles: Record<Landmark, string> = {
@@ -577,7 +612,7 @@ export class CityScene implements GameScene {
       return {
         title: titles[key],
         lines: lines[key].filter(Boolean),
-        action: action ? { label: action.scene ? 'Go inside' : 'Open', ...action } : undefined,
+        action: action ? { label: action.scene ? 'Go inside' : key === 'server' ? 'Open the Backend Arcade' : 'Open Order Journey', ...action } : undefined,
       };
     }
     return null;
