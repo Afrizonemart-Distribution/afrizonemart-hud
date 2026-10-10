@@ -15,6 +15,9 @@ import { Donut } from './charts/Donut';
 import { RankedBars } from './charts/RankedBars';
 import { TrendChart } from './charts/TrendChart';
 import { KpiTile } from './charts/KpiTile';
+import { AdvisorPanel } from '@/components/hud/common/AdvisorPanel';
+import { Explain, ExplainProvider } from '@/components/hud/common/Explain';
+import { SEARCH_EXPLAIN, adviseSearch } from '@/lib/hud/search';
 import { MiniTable } from './charts/MiniTable';
 import { Histogram } from './charts/Histogram';
 
@@ -93,18 +96,20 @@ export function SearchOpsDashboard() {
   }
 
   return (
+    <ExplainProvider registry={SEARCH_EXPLAIN} ctx={stats}>
     <div className="flex flex-col gap-3">
+      <AdvisorPanel advice={adviseSearch(stats)} note="hover any panel for an explanation" />
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-[280px_1fr_280px]">
         {/* Left column */}
         <div className="flex flex-col gap-3">
-          <OpsPanel title="Query Script Mix">
+          <Explain k="script" className="contents"><OpsPanel title="Query Script Mix">
             <Donut
               data={stats.scriptDistribution.map((s) => ({ label: s.script, value: s.count }))}
               centerValue={String(stats.totalQueries)}
               centerLabel={`${STATS_WINDOW_DAYS}D QUERIES`}
             />
-          </OpsPanel>
-          <OpsPanel title="Top Queries">
+          </OpsPanel></Explain>
+          <Explain k="top" className="contents"><OpsPanel title="Top Queries">
             <RankedBars
               items={stats.topQueries.slice(0, 8).map((q) => ({
                 label: q.normalizedQuery,
@@ -112,28 +117,28 @@ export function SearchOpsDashboard() {
                 sublabel: q.topCountry,
               }))}
             />
-          </OpsPanel>
-          <OpsPanel title="30-Day Search Volume" className="flex-1">
+          </OpsPanel></Explain>
+          <Explain k="volume" className="contents"><OpsPanel title="30-Day Search Volume" className="flex-1">
             <TrendChart data={daily.map((d) => d.totalQueries)} />
-          </OpsPanel>
+          </OpsPanel></Explain>
         </div>
 
         {/* Center — the live hero visualization */}
         <div className="flex flex-col gap-3">
-          <OpsPanel title="Live Search Activity — Worldwide" className="flex-1">
+          <Explain k="live" className="contents"><OpsPanel title="Live Search Activity — Worldwide" className="flex-1">
             <HologramGlobe accent={RED} compact worldwide eventFilter={(e) => e.event === 'search.performed'} />
-          </OpsPanel>
+          </OpsPanel></Explain>
         </div>
 
         {/* Right column */}
         <div className="flex flex-col gap-3">
-          <OpsPanel title="24-Hour Search Activity">
+          <Explain k="volume" className="contents"><OpsPanel title="24-Hour Search Activity">
             <TrendChart data={hourly.map((h) => h.totalQueries)} />
-          </OpsPanel>
-          <OpsPanel title="Latency (ms)">
+          </OpsPanel></Explain>
+          <Explain k="latency" className="contents"><OpsPanel title="Latency (ms)">
             <LatencyBars latencyMs={stats.latencyMs} />
-          </OpsPanel>
-          <OpsPanel title="Top Zero-Result Queries" className="flex-1">
+          </OpsPanel></Explain>
+          <Explain k="zeroList" className="contents"><OpsPanel title="Top Zero-Result Queries" className="flex-1">
             <MiniTable
               columns={[
                 { key: 'q', label: 'Query' },
@@ -141,20 +146,21 @@ export function SearchOpsDashboard() {
               ]}
               rows={stats.topZeroResultQueries.slice(0, 6).map((q) => ({ q: q.normalizedQuery, n: q.count }))}
             />
-          </OpsPanel>
+          </OpsPanel></Explain>
         </div>
       </div>
 
       {/* Bottom strip */}
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_repeat(4,minmax(0,140px))]">
-        <OpsPanel title="Searches by Country">
+        <Explain k="countries" className="contents"><OpsPanel title="Searches by Country">
           <Histogram data={stats.topCountries.map((c) => ({ label: c.country, value: c.count }))} />
-        </OpsPanel>
-        <KpiTile label={`${STATS_WINDOW_DAYS}D Searches`} value={String(stats.totalQueries)} />
-        <KpiTile label="Zero-Result Rate" value={pct(stats.zeroResultRate)} />
-        <KpiTile label="Fallback Rate" value={pct(stats.fallbackRate)} />
-        <KpiTile label="Did-You-Mean Rate" value={pct(stats.didYouMeanRate)} />
+        </OpsPanel></Explain>
+        <Explain k="total"><KpiTile label={`${STATS_WINDOW_DAYS}D Searches`} value={String(stats.totalQueries)} /></Explain>
+        <Explain k="zero"><KpiTile label="Zero-Result Rate" value={pct(stats.zeroResultRate)} /></Explain>
+        <Explain k="fallback"><KpiTile label="Fallback Rate" value={pct(stats.fallbackRate)} /></Explain>
+        <Explain k="dym"><KpiTile label="Did-You-Mean Rate" value={pct(stats.didYouMeanRate)} /></Explain>
       </div>
     </div>
+    </ExplainProvider>
   );
 }

@@ -10,6 +10,8 @@ import { loadCategories, productInfo, sampleProducts } from '@/lib/storeGame/cat
 import { startDemo } from '@/lib/storeGame/demo';
 import type { CategoryNode, StoreEvent } from '@/lib/storeGame/types';
 import { useAuthStore } from '@/stores/authStore';
+import { fetchPipeline } from '@/lib/hud/orders';
+import { useHudLiveEvents } from '@/lib/hud/useHudLiveEvents';
 
 /**
  * Afrizonemart World — the full-screen game. City map (landmarks,
@@ -74,6 +76,7 @@ export function WorldGame({ initialMode = 'live' }: { initialMode?: Mode } = {})
   const mountRef = useRef<HTMLDivElement>(null);
   const coreRef = useRef<GameCore | null>(null);
   const mallRef = useRef<MallScene | null>(null);
+  const cityRef = useRef<CityScene | null>(null);
   const [ready, setReady] = useState(false);
   const [progress, setProgress] = useState('Loading the catalogue…');
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -103,6 +106,7 @@ export function WorldGame({ initialMode = 'live' }: { initialMode?: Mode } = {})
       setProgress('Building the city…');
       const city = new CityScene();
       await core.add(city);
+      cityRef.current = city;
       if (disposed) return;
       setProgress('Opening the mall…');
       const mall = new MallScene(items);
@@ -150,6 +154,25 @@ export function WorldGame({ initialMode = 'live' }: { initialMode?: Mode } = {})
     }, 250);
     return () => clearInterval(id);
   }, []);
+
+  // Real orders drive the Warehouse / Depot; real shipments send vans.
+  useEffect(() => {
+    if (!ready) return;
+    const city = cityRef.current;
+    if (city) city.vanOnSale = mode === 'demo';
+    if (mode === 'demo') return;
+    const load = () => fetchPipeline(30).then((p) => cityRef.current?.setOrders(p)).catch(() => undefined);
+    void load();
+    const id = setInterval(load, 60_000);
+    return () => clearInterval(id);
+  }, [ready, mode]);
+  const modeRef = useRef(mode);
+  modeRef.current = mode; // the live-events hook keeps its first callback, so read mode via a ref
+  useHudLiveEvents((e) => {
+    if (modeRef.current === 'demo') return;
+    if (e.event === 'order.shipped') cityRef.current?.sendVan(e.country);
+    if (e.event.startsWith('order.')) void fetchPipeline(30).then((p) => cityRef.current?.setOrders(p)).catch(() => undefined);
+  });
 
   const act = useCallback((e: StoreEvent, instant = false) => coreRef.current?.apply(e, instant), []);
 
