@@ -1,6 +1,6 @@
-import { FALLBACK_CATEGORIES } from './layout';
+import { FALLBACK_CATEGORIES } from './fallback';
 import type { CategoryNode } from './types';
-import type { ProductInfo } from './engine';
+import type { ProductInfo } from './types';
 
 /**
  * Public catalog reads for the store: the category tree (aisles) and

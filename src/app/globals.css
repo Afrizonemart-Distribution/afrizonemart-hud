@@ -227,3 +227,80 @@
   from { transform: scale(0.6); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
 }
+
+/* ---- Afrizonemart World: game HUD + in-world labels ------------------- */
+.wg-pill {
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 4px 18px rgba(0, 0, 40, 0.18);
+  backdrop-filter: blur(6px);
+  color: #0a0f3d;
+}
+.wg-card {
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 4px 18px rgba(0, 0, 40, 0.16);
+  backdrop-filter: blur(6px);
+  color: #0a0f3d;
+}
+.wg-name {
+  opacity: 0.9;
+  padding: 1px 6px;
+  border-radius: 9999px;
+  background: rgba(0, 0, 102, 0.78);
+  color: #fff;
+  font: 600 9px var(--font-raleway), sans-serif;
+  white-space: nowrap;
+}
+.wg-till {
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  background: #000066;
+  color: #fbac34;
+  font: 700 10px/16px var(--font-mono), monospace;
+  text-align: center;
+}
+.sg-sign.wg-shop {
+  background: #fff;
+  color: #000066;
+  border: 2px solid #000066;
+  text-shadow: none;
+  font-size: 12px;
+}
+.sg-sign.wg-shop span { color: #555; }
+.sg-sign.wg-mall {
+  background: #000066;
+  color: #fbac34;
+  border: 2px solid #fbac34;
+  font-size: 16px;
+  padding: 5px 14px;
+}
+.sg-sign.wg-cafe {
+  background: #6b3e1e;
+  color: #fff3e0;
+  border-color: #fbac34;
+  text-shadow: none;
+}
+.sg-sign.wg-landmark {
+  background: rgba(255, 255, 255, 0.92);
+  color: #0a0f3d;
+  border: none;
+  border-radius: 10px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
+  text-shadow: none;
+  font-size: 12px;
+}
+.sg-sign.wg-landmark span { color: #555; }
+.sg-sign em { color: #e11d48; font-style: normal; font-weight: 700; }
+.wg-gate {
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: rgba(0, 0, 102, 0.85);
+  color: #fff;
+  font: 600 11px var(--font-raleway), sans-serif;
+  text-align: center;
+  white-space: nowrap;
+}
+.wg-gate span { display: block; font: 9px var(--font-mono), monospace; color: #fbac34; }
+.wg-flag { display: inline-block; vertical-align: -1px; border-radius: 2px; }

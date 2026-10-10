@@ -47,5 +47,5 @@ npm run dev
 
 ## Credits
 
-3D models in `public/models/` are from Kenney's **Mini Characters** and **Mini Market** packs
+3D models in `public/models/` are from Kenney's **Mini Characters**, **Mini Market**, **Furniture Kit**, **City Kit (Commercial)** and **City Kit (Roads)** packs
 (www.kenney.nl), licensed CC0. License files sit next to the models.
