@@ -11,21 +11,11 @@ import type { PulseSnapshot } from './pulseTypes';
  * (MICRO_CACHE_TTL_MS), Vercel in front of the website.
  */
 
-export type Severity = 'red' | 'yellow' | 'green';
+import type { Advice as SharedAdvice, Severity, Tip } from './advice';
 
-export interface Tip {
-  id: string;
-  severity: Severity;
-  title: string;
-  happening: string;
-  doThis: string[];
-}
-
-export interface Advice {
-  overall: Severity;
-  headline: string;
+export type { Severity, Tip };
+export interface Advice extends SharedAdvice {
   capacity: { now: number; max: number | null; pct: number | null; bottleneck: string };
-  tips: Tip[];
 }
 
 const REQ_PER_SHOPPER = 0.093; // the k6 video's ratio: 232 req/s at 2,500 shoppers
@@ -248,5 +238,19 @@ export function advise(snap: PulseSnapshot | null, history: PulseSnapshot[], mod
         ? `Working, but ${tips.length} thing${tips.length === 1 ? '' : 's'} to keep an eye on.`
         : `Action needed: ${tips.filter((t) => t.severity === 'red').length} problem${tips.filter((t) => t.severity === 'red').length === 1 ? '' : 's'} hurting customers now.`;
 
-  return { overall, headline, capacity: { now: nowShoppers, max, pct, bottleneck }, tips };
+  return {
+    overall,
+    headline,
+    capacity: { now: nowShoppers, max, pct, bottleneck },
+    meter: {
+      label: 'Capacity',
+      pct,
+      left: `CAPACITY · ${nowShoppers.toLocaleString()} shoppers now${max ? ` of ~${max.toLocaleString()} this server can hold` : ''}`,
+      right: `bottleneck: ${bottleneck}`,
+      note: max === null ? 'Needs some traffic to estimate — try SIM or a load test.' : undefined,
+      explainKey: 'capacity',
+      mark: 75,
+    },
+    tips,
+  };
 }

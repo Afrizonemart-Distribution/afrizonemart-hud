@@ -1,4 +1,8 @@
 import type { PulseParticle, PulseSnapshot } from './pulseTypes';
+import type { Explanation as Ex, Level } from './advice';
+
+export type { Level };
+export type Explanation = Ex<PulseSnapshot>;
 
 /**
  * Plain-English explanations for everything on the Backend Arcade. Each
@@ -6,14 +10,6 @@ import type { PulseParticle, PulseSnapshot } from './pulseTypes';
  * and what "good / watch / bad" look like. Written for a non-engineer.
  */
 
-export type Level = 'good' | 'watch' | 'bad' | 'info';
-
-export interface Explanation {
-  title: string;
-  what: string;
-  now?: (s: PulseSnapshot) => { text: string; level: Level };
-  scale?: string; // what good / watch / bad means
-}
 
 const lvl = (v: number, watch: number, bad: number): Level => (v >= bad ? 'bad' : v >= watch ? 'watch' : 'good');
 

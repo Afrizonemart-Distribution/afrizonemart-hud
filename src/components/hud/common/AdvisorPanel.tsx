@@ -1,13 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import type { Advice, Severity } from '@/lib/hud/advisor';
+import type { Advice, Severity } from '@/lib/hud/advice';
 import { Explain } from './Explain';
 
 /**
- * The Advisor bar: overall status, how many shoppers this server can hold
- * at once, and plain-English "what's happening / do this" cards — worst
- * first, cheapest fix first within each card.
+ * The Advisor bar, shared by every HUD page: overall status, an optional
+ * meter (capacity, on-time orders, conversion…), and plain-English
+ * "what's happening / do this" cards — worst first, cheapest fix first.
  */
 
 const SEV: Record<Severity, { dot: string; ring: string; text: string; word: string }> = {
@@ -16,11 +16,32 @@ const SEV: Record<Severity, { dot: string; ring: string; text: string; word: str
   green: { dot: 'bg-success', ring: 'border-success/50', text: 'text-success', word: 'Healthy' },
 };
 
-export function AdvisorPanel({ advice, mode }: { advice: Advice; mode: 'live' | 'staging' | 'sim' }) {
+export function AdvisorPanel({ advice, note }: { advice: Advice; note?: string }) {
   const [open, setOpen] = useState<string | null>(null);
   const s = SEV[advice.overall];
-  const cap = advice.capacity;
-  const pct = cap.pct ?? 0;
+  const m = advice.meter;
+  const pct = m?.pct ?? 0;
+
+  const meter = m && (
+    <div className="mt-3">
+      <div className="flex justify-between gap-3 font-mono text-[10px] text-amber/60">
+        <span>{m.left}</span>
+        <span>{m.right}</span>
+      </div>
+      <div className="relative mt-1 h-3 overflow-hidden rounded bg-amber/10">
+        <div
+          className={`h-full transition-all ${
+            m.goodWhen === 'high'
+              ? pct >= 40 ? 'bg-success' : pct >= 10 ? 'bg-amber' : 'bg-danger'
+              : pct >= 90 ? 'bg-danger' : pct >= 75 ? 'bg-amber' : 'bg-success'
+          }`}
+          style={{ width: `${Math.min(100, pct)}%` }}
+        />
+        {m.mark !== undefined && <div className="absolute inset-y-0 border-l border-dashed border-amber/60" style={{ left: `${m.mark}%` }} />}
+      </div>
+      {m.note && <div className="mt-1 font-mono text-[10px] text-amber/40">{m.note}</div>}
+    </div>
+  );
 
   return (
     <div className={`hud-panel border ${s.ring} p-3`}>
@@ -28,28 +49,10 @@ export function AdvisorPanel({ advice, mode }: { advice: Advice; mode: 'live' | 
         <span className={`h-3 w-3 animate-pulse rounded-full ${s.dot}`} />
         <span className={`font-mono text-[11px] font-bold uppercase tracking-widest ${s.text}`}>Advisor · {s.word}</span>
         <span className="font-sans text-[13px] text-amber-light">{advice.headline}</span>
-        {mode === 'sim' && <span className="font-mono text-[10px] text-info">(practice numbers from SIM)</span>}
+        {note && <span className="font-mono text-[10px] text-info">{note}</span>}
       </div>
 
-      <Explain k="capacity">
-        <div className="mt-3">
-          <div className="flex justify-between font-mono text-[10px] text-amber/60">
-            <span>
-              CAPACITY · {cap.now.toLocaleString()} shoppers now
-              {cap.max ? ` of ~${cap.max.toLocaleString()} this server can hold` : ''}
-            </span>
-            <span>bottleneck: {cap.bottleneck}</span>
-          </div>
-          <div className="relative mt-1 h-3 overflow-hidden rounded bg-amber/10">
-            <div
-              className={`h-full transition-all ${pct >= 90 ? 'bg-danger' : pct >= 75 ? 'bg-amber' : 'bg-success'}`}
-              style={{ width: `${Math.min(100, pct)}%` }}
-            />
-            <div className="absolute inset-y-0 border-l border-dashed border-amber/60" style={{ left: '75%' }} title="75%: plan to scale before here" />
-          </div>
-          {cap.max === null && <div className="mt-1 font-mono text-[10px] text-amber/40">Needs some traffic to estimate — try SIM or a load test.</div>}
-        </div>
-      </Explain>
+      {meter && (m?.explainKey ? <Explain k={m.explainKey}>{meter}</Explain> : meter)}
 
       {advice.tips.length > 0 && (
         <div className="mt-3 flex flex-col gap-2">

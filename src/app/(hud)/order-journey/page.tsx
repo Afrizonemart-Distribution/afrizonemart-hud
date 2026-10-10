@@ -1,5 +1,6 @@
 'use client';
 
+import { OrderTracker } from '@/components/hud/orders/OrderTracker';
 import { OrderJourneyMap } from '@/components/hud/OrderJourneyMap';
 
 /**
@@ -13,8 +14,12 @@ import { OrderJourneyMap } from '@/components/hud/OrderJourneyMap';
  */
 export default function OrderJourneyPage() {
   return (
-    <main className="mx-auto max-w-5xl px-6 py-10">
-      <OrderJourneyMap />
+    <main className="mx-auto flex max-w-7xl flex-col gap-6 px-6 py-8">
+      <OrderTracker />
+      <div>
+        <div className="mb-2 font-mono text-[10px] uppercase tracking-widest text-amber/60">Live shipments map</div>
+        <OrderJourneyMap />
+      </div>
     </main>
   );
 }
