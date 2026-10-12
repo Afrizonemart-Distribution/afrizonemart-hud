@@ -7,6 +7,7 @@ const TABS = [
   { href: '/', label: 'Overview' },
   { href: '/order-journey', label: 'Order Journey' },
   { href: '/search', label: 'Search & Discovery' },
+  { href: '/trace', label: 'Traceability' },
   { href: '/store', label: 'Store (live)' },
   { href: '/arcade', label: 'Backend Arcade' },
 ];
