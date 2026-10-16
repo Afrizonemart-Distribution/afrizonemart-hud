@@ -7,7 +7,7 @@ import type { Advice, Explanation, Tip } from './advice';
  * GET /api/hud/store/funnel (Store Game viewer only).
  */
 
-export type Stage = 'PENDING_PAYMENT' | 'PAID' | 'FULFILLING' | 'SHIPPED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED' | 'REFUNDED';
+export type Stage = 'PENDING_PAYMENT' | 'PAID' | 'FULFILLING' | 'SHIPPED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED' | 'REFUND_PROCESSING' | 'REFUNDED';
 
 export interface Pipeline {
   days: number;
@@ -54,6 +54,7 @@ export const STAGE_LABEL: Record<Stage, string> = {
   OUT_FOR_DELIVERY: 'Out for delivery',
   DELIVERED: 'Delivered',
   CANCELLED: 'Cancelled',
+  REFUND_PROCESSING: 'Refund processing',
   REFUNDED: 'Refunded',
 };
 
@@ -134,7 +135,13 @@ export const ORDERS_EXPLAIN: Record<string, Explanation<OrdersCtx>> = {
     now: stageNow('DELIVERED'),
   },
   CANCELLED: { title: 'Cancelled', what: 'Stopped before it shipped — by the customer or by staff.', now: stageNow('CANCELLED') },
-  REFUNDED: { title: 'Refunded', what: 'Money sent back to the customer.', now: stageNow('REFUNDED') },
+  REFUND_PROCESSING: {
+    title: 'Refund processing',
+    what: 'A full refund has started but the money hasn’t reached the customer yet — waiting on their bank details, or the card refund is in flight.',
+    now: stageNow('REFUND_PROCESSING'),
+    scale: 'Target: customer has the money within 3 days.',
+  },
+  REFUNDED: { title: 'Refunded', what: 'Money sent back to the customer — staff confirmed the transfer.', now: stageNow('REFUNDED') },
   stuck: {
     title: 'Stuck orders',
     what: 'Orders that have sat in one stage longer than they should. Each one is a customer waiting — fix the oldest first.',
@@ -169,14 +176,18 @@ const STUCK_FIX: Partial<Record<Stage, string[]>> = {
   FULFILLING: ['Hand packed orders to the courier and set them to Shipped (add the tracking number).', 'If something is out of stock, contact the customer and offer a swap or refund.'],
   SHIPPED: ['Chase the courier with the tracking number.', 'If the courier confirmed delivery, mark it Delivered (or use Show & Scan next time).'],
   OUT_FOR_DELIVERY: ['Call the rider; if the customer wasn’t home, rebook.', 'Ask the customer to show their delivery code to the rider.'],
+  REFUND_PROCESSING: [
+    'Check support@ for the customer’s bank details, send the transfer, then Admin → Orders → Refunds → Mark as sent (add the reference).',
+    'No reply after 2 days? Call the customer on the order’s phone number.',
+  ],
 };
 
 export function adviseOrders(pipe: Pipeline | null): Advice {
   if (!pipe) return { overall: 'green', headline: 'Loading orders…', tips: [] };
   const tips: Tip[] = [];
-  const open = pipe.stages.filter((s) => ['PAID', 'FULFILLING', 'SHIPPED', 'OUT_FOR_DELIVERY'].includes(s.stage)).reduce((a, s) => a + s.count, 0);
+  const open = pipe.stages.filter((s) => ['PAID', 'FULFILLING', 'SHIPPED', 'OUT_FOR_DELIVERY', 'REFUND_PROCESSING'].includes(s.stage)).reduce((a, s) => a + s.count, 0);
 
-  for (const stage of ['PAID', 'FULFILLING', 'SHIPPED', 'OUT_FOR_DELIVERY'] as Stage[]) {
+  for (const stage of ['PAID', 'FULFILLING', 'SHIPPED', 'OUT_FOR_DELIVERY', 'REFUND_PROCESSING'] as Stage[]) {
     const late = pipe.stuck.filter((s) => s.stage === stage);
     if (!late.length) continue;
     const oldest = Math.max(...late.map((s) => s.hoursInStage));
