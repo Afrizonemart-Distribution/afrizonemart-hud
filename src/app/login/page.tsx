@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { type FormEvent, Suspense, useState } from 'react';
 import { ArrowRight, ShieldAlert } from 'lucide-react';
-import { loginUser, friendlyAuthError } from '@/lib/api/auth';
+import { completeMfaSignIn, friendlyAuthError, isMfaChallenge, loginUser } from '@/lib/api/auth';
 import { useAuthStore } from '@/stores/authStore';
 
 /**
@@ -30,6 +30,9 @@ function HudLoginForm() {
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Set when the account has 2FA on: the password was right, now the code. */
+  const [mfaToken, setMfaToken] = useState<string | null>(null);
+  const [code, setCode] = useState('');
 
   const raw = searchParams.get('returnUrl');
   const isSafe = typeof raw === 'string' && raw.startsWith('/') && !raw.startsWith('//');
@@ -40,7 +43,16 @@ function HudLoginForm() {
     setError(null);
     setSubmitting(true);
     try {
+      if (mfaToken) {
+        setSession(await completeMfaSignIn(mfaToken, code.trim()));
+        router.push(target);
+        return;
+      }
       const result = await loginUser({ email, password });
+      if (isMfaChallenge(result)) {
+        setMfaToken(result.mfaToken);
+        return;
+      }
       setSession(result);
       router.push(target);
     } catch (err) {
@@ -77,6 +89,28 @@ function HudLoginForm() {
         )}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          {mfaToken ? (
+            <>
+          <label className="flex flex-col gap-1.5">
+            <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-amber/60">
+              Authenticator code
+            </span>
+            <input
+              required
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              autoFocus
+              className={`${inputClass} tracking-[0.3em]`}
+            />
+            <span className="font-mono text-[10px] text-amber/40">
+              6-digit code from your authenticator app, or a recovery code.
+            </span>
+          </label>
+            </>
+          ) : (
+            <>
           <label className="flex flex-col gap-1.5">
             <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-amber/60">
               Identifier
@@ -105,15 +139,26 @@ function HudLoginForm() {
             />
           </label>
 
+            </>
+          )}
           <button
             type="submit"
             disabled={submitting}
             className="mt-2 flex items-center justify-center gap-2 rounded border border-amber bg-amber/10 py-3 font-mono text-xs font-bold uppercase tracking-widest text-amber shadow-glow-sm transition-all hover:bg-amber/20 hover:shadow-glow disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {submitting ? 'Authenticating…' : 'Authenticate'}
+            {submitting ? 'Authenticating…' : mfaToken ? 'Verify code' : 'Authenticate'}
             <ArrowRight size={14} aria-hidden />
           </button>
         </form>
+        {mfaToken ? (
+          <button
+            type="button"
+            onClick={() => { setMfaToken(null); setCode(''); setError(null); }}
+            className="mt-4 w-full font-mono text-[10px] uppercase tracking-widest text-amber/50 hover:text-amber"
+          >
+            Use a different account
+          </button>
+        ) : null}
       </div>
     </main>
   );
