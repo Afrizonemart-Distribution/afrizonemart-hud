@@ -33,6 +33,8 @@ function HudLoginForm() {
   /** Set when the account has 2FA on: the password was right, now the code. */
   const [mfaToken, setMfaToken] = useState<string | null>(null);
   const [code, setCode] = useState('');
+  // Recovery codes (ABCD-EFGH) have letters, so they need the full keyboard on phones.
+  const [recovery, setRecovery] = useState(false);
 
   const raw = searchParams.get('returnUrl');
   const isSafe = typeof raw === 'string' && raw.startsWith('/') && !raw.startsWith('//');
@@ -93,21 +95,33 @@ function HudLoginForm() {
             <>
           <label className="flex flex-col gap-1.5">
             <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-amber/60">
-              Authenticator code
+              {recovery ? 'Recovery code' : 'Authenticator code'}
             </span>
             <input
+              key={recovery ? 'recovery' : 'totp'}
               required
-              inputMode="numeric"
-              autoComplete="one-time-code"
+              inputMode={recovery ? 'text' : 'numeric'}
+              autoComplete={recovery ? 'off' : 'one-time-code'}
+              autoCapitalize={recovery ? 'characters' : undefined}
+              autoCorrect="off"
+              spellCheck={false}
+              placeholder={recovery ? 'ABCD-EFGH' : '123456'}
               value={code}
               onChange={(e) => setCode(e.target.value)}
               autoFocus
               className={`${inputClass} tracking-[0.3em]`}
             />
             <span className="font-mono text-[10px] text-amber/40">
-              6-digit code from your authenticator app, or a recovery code.
+              {recovery ? 'One of the codes you saved when you turned on 2FA. Each works once.' : '6-digit code from your authenticator app.'}
             </span>
           </label>
+          <button
+            type="button"
+            onClick={() => { setRecovery((v) => !v); setCode(''); setError(null); }}
+            className="self-start font-mono text-[10px] font-bold uppercase tracking-widest text-amber/70 hover:text-amber"
+          >
+            {recovery ? 'Use authenticator code' : 'Lost your phone? Use a recovery code'}
+          </button>
             </>
           ) : (
             <>
