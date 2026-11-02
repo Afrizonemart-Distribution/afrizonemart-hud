@@ -191,8 +191,28 @@ export function registerUser(body: RegisterInput): Promise<AuthResult> {
   });
 }
 
-export function loginUser(body: LoginInput): Promise<AuthResult> {
-  return authFetch<AuthResult>('/api/auth/login', {
+/** What sign-in returns when the account has two-factor on (afrizonemart-api#171). */
+export interface MfaChallenge {
+  mfaRequired: true;
+  mfaToken: string;
+  expiresInSeconds: number;
+}
+
+export function isMfaChallenge(value: AuthResult | MfaChallenge): value is MfaChallenge {
+  return 'mfaRequired' in value && value.mfaRequired === true;
+}
+
+/** Second step of a two-factor sign-in: the 6-digit or recovery code. */
+export function completeMfaSignIn(mfaToken: string, code: string): Promise<AuthResult> {
+  return authFetch<AuthResult>('/api/auth/mfa/sign-in', {
+    method: 'POST',
+    body: JSON.stringify({ mfaToken, code }),
+  });
+}
+
+/** Resolves with a session, or a challenge when the account has 2FA on. */
+export function loginUser(body: LoginInput): Promise<AuthResult | MfaChallenge> {
+  return authFetch<AuthResult | MfaChallenge>('/api/auth/login', {
     method: 'POST',
     body: JSON.stringify(body),
   });
