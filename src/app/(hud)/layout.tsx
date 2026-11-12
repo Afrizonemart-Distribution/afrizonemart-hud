@@ -3,6 +3,7 @@
 import { RequireAdmin } from '@/components/common/RequireAdmin';
 import { HudTopBar } from '@/components/hud/HudTopBar';
 import { HudNav } from '@/components/hud/HudNav';
+import { TwoFactorBanner } from '@/components/hud/TwoFactorBanner';
 
 /**
  * Shared shell for every gated HUD page (Overview, Order Journey,
@@ -20,6 +21,7 @@ export default function HudLayout({ children }: { children: React.ReactNode }) {
       <div className="min-h-screen">
         <HudTopBar />
         <HudNav />
+        <TwoFactorBanner />
         {children}
       </div>
     </RequireAdmin>
