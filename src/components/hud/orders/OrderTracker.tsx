@@ -35,6 +35,7 @@ const EVENT_STAGE: Record<string, Stage> = {
   'order.out_for_delivery': 'OUT_FOR_DELIVERY',
   'order.delivered': 'DELIVERED',
   'order.cancelled': 'CANCELLED',
+  'order.refund_started': 'REFUND_PROCESSING',
   'order.refunded': 'REFUNDED',
 };
 const ADMIN_ORDERS = 'https://afrizonemart.com/admin/orders';
@@ -169,6 +170,9 @@ export function OrderTracker() {
           <div className="mt-2 flex gap-3 font-mono text-[10px] text-amber/50">
             <Explain k="CANCELLED">
               <span>✖ Cancelled: {stage('CANCELLED')?.count ?? 0}</span>
+            </Explain>
+            <Explain k="REFUND_PROCESSING">
+              <span>⟳ Refund processing: {stage('REFUND_PROCESSING')?.count ?? 0}</span>
             </Explain>
             <Explain k="REFUNDED">
               <span>↩ Refunded: {stage('REFUNDED')?.count ?? 0}</span>
