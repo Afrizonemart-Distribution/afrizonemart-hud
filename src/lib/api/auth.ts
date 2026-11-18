@@ -19,6 +19,9 @@ export interface AuthUser {
   /// ADMIN gets every capability. STAFF gets per-user grants. SELLER gets
   /// role defaults. CUSTOMER gets none.
   permissions: string[];
+  /// Admin of HUD on this session: every Owner, and a HUD Product Admin
+  /// (set in Part-Time). Optional so an older API build reads as "no".
+  productAdmin?: boolean;
   /// Tracker #48 — marketing consent flags. Surfaced so the
   /// profile page can render the current state without an extra
   /// fetch, and so future feature gates ("only show newsletter
