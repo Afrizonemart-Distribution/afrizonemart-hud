@@ -9,11 +9,10 @@ interface Props {
 }
 
 /**
- * Gate for the whole app — ADMIN role only, deliberately stricter
- * than afrizonemart-v2-supplier's RequireAdmin (which also admits
- * STAFF). The HUD was scoped as admin-only, not a STAFF-grantable
- * capability, so this checks the role directly rather than going
- * through effectiveCapabilities.
+ * Gate for the whole app — HUD admins only: Owners (role ADMIN), and HUD
+ * Product Admins (STAFF whose /me says productAdmin on this site, granted in
+ * Part-Time → Staff access). Other staff stay out, deliberately stricter than
+ * the supplier portal's RequireAdmin. The API enforces the same rule.
  */
 export function RequireAdmin({ children }: Props) {
   const router = useRouter();
@@ -22,7 +21,7 @@ export function RequireAdmin({ children }: Props) {
   const user = useAuthStore((s) => s.user);
   const refreshing = useAuthStore((s) => s.refreshing);
   const isAuthed = Boolean(user);
-  const isAdmin = user?.role === 'ADMIN';
+  const isAdmin = user?.role === 'ADMIN' || (user?.role === 'STAFF' && user.productAdmin === true);
 
   useEffect(() => {
     if (useAuthStore.persist?.hasHydrated?.()) {
@@ -56,7 +55,7 @@ export function RequireAdmin({ children }: Props) {
       <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-void px-4 text-center font-mono">
         <span className="text-xs uppercase tracking-widest text-danger">Access denied</span>
         <p className="max-w-sm text-sm text-amber/50">
-          This console is restricted to ADMIN accounts.
+          This console is for HUD admins. Ask an Owner to add you in Part-Time → Staff access.
         </p>
       </div>
     );

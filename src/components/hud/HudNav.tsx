@@ -10,6 +10,7 @@ const TABS = [
   { href: '/trace', label: 'Traceability' },
   { href: '/store', label: 'Store (live)' },
   { href: '/arcade', label: 'Backend Arcade' },
+  { href: '/staff-access', label: 'Staff access' },
 ];
 
 /**
