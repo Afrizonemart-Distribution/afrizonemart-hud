@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '@/stores/authStore';
+import { StaffPresence } from './StaffPresence';
 
 interface Props {
   children: React.ReactNode;
@@ -62,5 +63,11 @@ export function RequireAdmin({ children }: Props) {
     );
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      {/* Online signal for HR's "who's working" (renders nothing). */}
+      <StaffPresence />
+      {children}
+    </>
+  );
 }
