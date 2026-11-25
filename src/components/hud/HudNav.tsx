@@ -10,6 +10,8 @@ const TABS = [
   { href: '/trace', label: 'Traceability' },
   { href: '/store', label: 'Store (live)' },
   { href: '/arcade', label: 'Backend Arcade' },
+  // Every staff member: their own leave, pay, documents and claims.
+  { href: '/my-hr', label: 'My HR' },
 ];
 
 /**
